@@ -6,6 +6,8 @@ library(tidyverse)
 library(tidymodels)
 library(vroom)
 library(embed) # for target encoding
+library(ranger)
+library(rpart)
 
 train <- vroom("./train.csv") %>% 
   mutate(ACTION = as.factor(ACTION))
@@ -17,6 +19,19 @@ my_recipe <- recipe(ACTION ~ ., data = train) %>%
   step_mutate_at(all_numeric_predictors(), fn = factor) %>% # turn all numeric features into factors
   step_other(all_nominal_predictors(), threshold = .001) %>% 
   step_dummy(all_nominal_predictors()) # dummy variable encoding
+
+predict_and_format <- function(workflow, new_data, filename){
+  predictions <- workflow %>%
+    predict(new_data = new_data,
+            type = "prob")
+  
+  submission <- predictions %>%
+    mutate(Id = row_number()) %>% 
+    rename("Action" = ".pred_1") %>% 
+    select(3,2)
+  
+  vroom_write(x = submission, file = filename, delim=",")
+}
 
 
 # NOTE: some of these step functions are not appropriate to use together 13
@@ -95,3 +110,41 @@ pen_log_submission <- pen_log_preds %>%
   select(3,2)
 
 vroom_write(x=pen_log_submission, file="./pen_log_reg.csv", delim=",")
+
+
+# Random Forests ----------------------------------------------------------
+rand_forest_mod <- rand_forest(mtry = tune(),
+                               min_n=tune(),
+                               trees=500) %>% # or 1000
+  set_engine("ranger") %>%
+  set_mode("classification")
+
+rand_forest_workflow <- workflow() %>%
+  add_recipe(target_encoding_recipe) %>%
+  add_model(rand_forest_mod)
+
+rand_forest_tuning_grid <- grid_regular(mtry(range = c(1, (ncol(train)-1))),
+                                        min_n(),
+                                        levels = 5) ## L^2 total tuning possibilities
+
+## Split data for CV
+forest_folds <- vfold_cv(train, v = 5, repeats = 1)
+
+## Run the CV
+CV_results <- rand_forest_workflow %>%
+  tune_grid(resamples = forest_folds,
+            grid = rand_forest_tuning_grid,
+            metrics = metric_set(roc_auc)) # f_meas, sens, recall, spec, precision, accuracy
+
+## Find Best Tuning Parameters
+forest_bestTune <- CV_results %>%
+  select_best("roc_auc")
+
+## Finalize the Workflow & fit it
+final_forest_wf <- rand_forest_workflow %>%
+  finalize_workflow(forest_bestTune) %>%
+  fit(data = train)
+
+predict_and_format(final_forest_wf, test, "./random_forest_predictions.csv")
+
+
