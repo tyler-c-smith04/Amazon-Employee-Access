@@ -8,6 +8,8 @@ library(vroom)
 library(embed) # for target encoding
 library(ranger)
 library(rpart)
+library(discrim)
+library(naivebayes)
 
 train <- vroom("./train.csv") %>% 
   mutate(ACTION = as.factor(ACTION))
@@ -146,5 +148,44 @@ final_forest_wf <- rand_forest_workflow %>%
   fit(data = train)
 
 predict_and_format(final_forest_wf, test, "./random_forest_predictions.csv")
+
+# Naive Bayes -------------------------------------------------------------
+library(discrim)
+
+nb_model <- naive_Bayes(Laplace=tune(), smoothness=tune()) %>% 
+  set_mode('classification') %>% 
+  set_engine('naivebayes')
+
+nb_wf <- workflow() %>% 
+  add_recipe(target_encoding_recipe) %>% 
+  add_model(nb_model)
+
+# Tune smoothness and Laplace here
+nb_tuning_grid <- grid_regular(Laplace(),
+                               smoothness(),
+                               levels = 5)
+
+## Split data for CV
+nb_folds <- vfold_cv(train, v = 5, repeats = 1)
+
+## Run the CV
+CV_results <- nb_wf %>%
+  tune_grid(resamples = nb_folds,
+            grid = nb_tuning_grid,
+            metrics = metric_set(roc_auc)) # f_meas, sens, recall, spec, precision, accuracy
+
+## Find Best Tuning Parameters
+nb_bestTune <- CV_results %>%
+  select_best("roc_auc")
+
+## Finalize the Workflow & fit it
+final_nb_wf <- nb_wf %>%
+  finalize_workflow(nb_bestTune) %>%
+  fit(data = train)
+
+# Predict
+predict(final_nb_wf, new_data = test, type = 'prob')
+
+predict_and_format(final_nb_wf, test, "./nb_preds.csv")
 
 
