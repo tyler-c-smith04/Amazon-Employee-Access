@@ -76,7 +76,9 @@ vroom_write(x=amazon_submission, file="./logistic_reg.csv", delim=",")
 target_encoding_recipe <- recipe(ACTION ~ ., data = train) %>%
   step_mutate_at(all_numeric_predictors(), fn = factor) %>% # turn all numeric features into factors
   step_other(all_nominal_predictors(), threshold = .001) %>% 
-  step_lencode_mixed(all_nominal_predictors(), outcome = vars(ACTION)) # dummy variable encoding
+  step_lencode_mixed(all_nominal_predictors(), outcome = vars(ACTION)) %>% # dummy variable encoding
+  step_normalize(all_nominal_predictors())
+
 
 pen_log_mod <- logistic_reg(mixture = tune() , penalty = tune() ) %>%
   set_engine('glmnet')
