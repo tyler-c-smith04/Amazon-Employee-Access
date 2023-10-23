@@ -229,10 +229,11 @@ predict_and_format <- function(workflow, new_data, filename){
 # predict_and_format(final_knn_wf, test, "./knn_predictions.csv")
 
 # Principal Component Dimension Reduction ---------------------------------
-pcdr_recipe <- recipe(ACTION ~ ., data = train) %>%
+pcdr_recipe <- recipe(ACTION ~ ., train) %>%
   step_mutate_at(all_numeric_predictors(), fn = factor) %>% # turn all numeric features into factors
-  step_dummy(all_nominal_predictors()) %>%
-  step_normalize(all_predictors()) %>%
+  step_other(all_nominal_predictors(), threshold = .001) %>%  # combines categorical values that occur <1% into an "other" value
+  step_lencode_mixed(all_nominal_predictors(), outcome = vars(ACTION)) %>%  # target encoding (must be 2-factor)
+  step_normalize(all_nominal_predictors()) %>% 
   step_pca(all_predictors(), threshold = .8) #Threshold is between 0 and 1
 
 nb_model <- naive_Bayes(Laplace=tune(), smoothness=tune()) %>%
