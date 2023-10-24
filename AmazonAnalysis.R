@@ -236,72 +236,106 @@ pcdr_recipe <- recipe(ACTION ~ ., train) %>%
   step_normalize(all_nominal_predictors()) %>% 
   step_pca(all_predictors(), threshold = .8) #Threshold is between 0 and 1
 
-nb_model <- naive_Bayes(Laplace=tune(), smoothness=tune()) %>%
-  set_mode('classification') %>%
-  set_engine('naivebayes')
+# nb_model <- naive_Bayes(Laplace=tune(), smoothness=tune()) %>%
+#   set_mode('classification') %>%
+#   set_engine('naivebayes')
+# 
+# nb_wf <- workflow() %>%
+#   add_recipe(pcdr_recipe) %>%
+#   add_model(nb_model)
+# 
+# # Tune smoothness and Laplace here
+# nb_tuning_grid <- grid_regular(Laplace(),
+#                                smoothness(),
+#                                levels = 5)
+# 
+# ## Split data for CV
+# nb_folds <- vfold_cv(train, v = 5, repeats = 1)
+# 
+# ## Run the CV
+# CV_results <- nb_wf %>%
+#   tune_grid(resamples = nb_folds,
+#             grid = nb_tuning_grid,
+#             metrics = metric_set(roc_auc)) # f_meas, sens, recall, spec, precision, accuracy
+# 
+# ## Find Best Tuning Parameters
+# nb_bestTune <- CV_results %>%
+#   select_best("roc_auc")
+# 
+# ## Finalize the Workflow & fit it
+# final_nb_wf <- nb_wf %>%
+#   finalize_workflow(nb_bestTune) %>%
+#   fit(data = train)
+# 
+# # Predict
+# predict(final_nb_wf, new_data = test, type = 'prob')
+# 
+# predict_and_format(final_nb_wf, test, "./nb_pcdr_preds.csv")
+# 
+# knn_model <- nearest_neighbor(neighbors=tune()) %>% # set or tune
+#   set_mode("classification") %>%
+#   set_engine("kknn")
+# 
+# knn_wf <- workflow() %>%
+#   add_recipe(pcdr_recipe) %>%
+#   add_model(knn_model)
+# 
+# # cross validation
+# knn_tuning_grid <- grid_regular(neighbors(),
+#                                 levels = 5)
+# 
+# knn_folds <- vfold_cv(train, v = 5, repeats = 1)
+# 
+# ## Run the CV
+# CV_results <- knn_wf %>%
+#   tune_grid(resamples = knn_folds,
+#             grid = knn_tuning_grid,
+#             metrics = metric_set(roc_auc))
+# 
+# knn_bestTune <- CV_results %>%
+#   select_best("roc_auc")
+# 
+# # finalize workflow
+# final_knn_wf <- knn_wf %>%
+#   finalize_workflow(knn_bestTune) %>%
+#   fit(data = train)
+# 
+# predict_and_format(final_knn_wf, test, "./knn_pcdr_predictions.csv")
 
-nb_wf <- workflow() %>%
+# Random Forests w PCDR ---------------------------------------------------
+rand_forest_mod <- rand_forest(mtry = tune(),
+                               min_n=tune(),
+                               trees=1000) %>% # or 1000
+  set_engine("ranger") %>%
+  set_mode("classification")
+
+rand_forest_workflow <- workflow() %>%
   add_recipe(pcdr_recipe) %>%
-  add_model(nb_model)
+  add_model(rand_forest_mod)
 
-# Tune smoothness and Laplace here
-nb_tuning_grid <- grid_regular(Laplace(),
-                               smoothness(),
-                               levels = 5)
+rand_forest_tuning_grid <- grid_regular(mtry(range = c(1, (ncol(train)-1))),
+                                        min_n(),
+                                        levels = 5) ## L^2 total tuning possibilities
 
 ## Split data for CV
-nb_folds <- vfold_cv(train, v = 5, repeats = 1)
+forest_folds <- vfold_cv(train, v = 5, repeats = 1)
 
 ## Run the CV
-CV_results <- nb_wf %>%
-  tune_grid(resamples = nb_folds,
-            grid = nb_tuning_grid,
+CV_results <- rand_forest_workflow %>%
+  tune_grid(resamples = forest_folds,
+            grid = rand_forest_tuning_grid,
             metrics = metric_set(roc_auc)) # f_meas, sens, recall, spec, precision, accuracy
 
 ## Find Best Tuning Parameters
-nb_bestTune <- CV_results %>%
+forest_bestTune <- CV_results %>%
   select_best("roc_auc")
 
 ## Finalize the Workflow & fit it
-final_nb_wf <- nb_wf %>%
-  finalize_workflow(nb_bestTune) %>%
+final_forest_wf <- rand_forest_workflow %>%
+  finalize_workflow(forest_bestTune) %>%
   fit(data = train)
 
-# Predict
-predict(final_nb_wf, new_data = test, type = 'prob')
-
-predict_and_format(final_nb_wf, test, "./nb_pcdr_preds.csv")
-
-knn_model <- nearest_neighbor(neighbors=tune()) %>% # set or tune
-  set_mode("classification") %>%
-  set_engine("kknn")
-
-knn_wf <- workflow() %>%
-  add_recipe(pcdr_recipe) %>%
-  add_model(knn_model)
-
-# cross validation
-knn_tuning_grid <- grid_regular(neighbors(),
-                                levels = 5)
-
-knn_folds <- vfold_cv(train, v = 5, repeats = 1)
-
-## Run the CV
-CV_results <- knn_wf %>%
-  tune_grid(resamples = knn_folds,
-            grid = knn_tuning_grid,
-            metrics = metric_set(roc_auc))
-
-knn_bestTune <- CV_results %>%
-  select_best("roc_auc")
-
-# finalize workflow
-final_knn_wf <- knn_wf %>%
-  finalize_workflow(knn_bestTune) %>%
-  fit(data = train)
-
-predict_and_format(final_knn_wf, test, "./knn_pcdr_predictions.csv")
-
+predict_and_format(final_forest_wf, test, "./random_forest_pcdr_predictions.csv")
 
 stopCluster(cl)
 
