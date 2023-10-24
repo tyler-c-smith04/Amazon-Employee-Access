@@ -14,7 +14,7 @@ library(kknn)
 library(doParallel)
 
 parallel::detectCores()
-cl <- makePSOCKcluster(15)
+cl <- makePSOCKcluster(20)
 registerDoParallel(cl)
 
 train <- vroom("./train.csv") %>% 
