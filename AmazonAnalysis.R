@@ -372,7 +372,7 @@ svm_bestTune <- CV_results %>%
 
 # finalize workflow
 final_svm_wf <- svm_wf %>%
-  finalize_workflow(knn_bestTune) %>%
+  finalize_workflow(svm_bestTune) %>%
   fit(data = train)
 
 predict_and_format(final_svm_wf, test, "./svm_predictions.csv")
