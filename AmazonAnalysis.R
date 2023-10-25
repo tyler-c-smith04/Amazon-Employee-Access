@@ -362,16 +362,16 @@ svm_tuning_grid <- grid_regular(cost(),
 svm_folds <- vfold_cv(train, v = 5, repeats = 1)
 
 ## Run the CV
-CV_results <- knn_wf %>%
-  tune_grid(resamples = knn_folds,
-            grid = knn_tuning_grid,
+CV_results <- svm_wf %>%
+  tune_grid(resamples = svm_folds,
+            grid = svm_tuning_grid,
             metrics = metric_set(roc_auc))
 
 svm_bestTune <- CV_results %>%
   select_best("roc_auc")
 
 # finalize workflow
-final_svm_wf <- knn_wf %>%
+final_svm_wf <- svm_wf %>%
   finalize_workflow(knn_bestTune) %>%
   fit(data = train)
 
