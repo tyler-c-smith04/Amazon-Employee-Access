@@ -37,9 +37,9 @@ test <- vroom("./test.csv") %>%
 #   step_smote(ACTION, neighbors = 10)
 
 
-my_recipe <- recipe(ACTION ~ ., data = train) %>%
-  step_mutate_at(all_numeric_predictors(), fn = factor) %>% # turn all numeric features into factors
-  step_lencode_mixed(all_nominal_predictors(), outcome = vars(ACTION))
+# my_recipe <- recipe(ACTION ~ ., data = train) %>%
+#   step_mutate_at(all_numeric_predictors(), fn = factor) %>% # turn all numeric features into factors
+#   step_lencode_mixed(all_nominal_predictors(), outcome = vars(ACTION))
 
 predict_and_format <- function(workflow, new_data, filename){
   predictions <- workflow %>%
@@ -92,82 +92,82 @@ predict_and_format <- function(workflow, new_data, filename){
 #   step_normalize(all_nominal_predictors())
 
 
-pen_log_mod <- logistic_reg(mixture = tune() , penalty = tune() ) %>%
-  set_engine('glmnet')
-
-pen_log_wf <- workflow() %>%
-  add_recipe(my_recipe) %>%
-  add_model(pen_log_mod)
-
-## Grid of values to tune over
-pen_tuning_grid <- grid_regular(penalty(),
-                            mixture(),
-                            levels = 5)
-
-## Splits data for CV
-folds <- vfold_cv(train, v = 5, repeats = 1)
-
-## Run the CV
-cv_results <- pen_log_wf %>%
-  tune_grid(resamples = folds,
-            grid = pen_tuning_grid,
-            metrics = metric_set(roc_auc))
-
-best_tune <- cv_results %>%
-  select_best('roc_auc')
-
-# Finalize wf and fit it
-final_wf <-
-  pen_log_wf %>%
-  finalize_workflow(best_tune) %>%
-  fit(data = train)
-
-# Predict
-pen_log_preds <- final_wf %>%
-  predict(new_data = test, type = 'prob')
-
-pen_log_submission <- pen_log_preds %>%
-  mutate(Id = row_number()) %>%
-  rename("Action" = ".pred_1") %>%
-  select(3,2)
-
-vroom_write(x=pen_log_submission, file="./pen_log_reg_smote.csv", delim=",")
+# pen_log_mod <- logistic_reg(mixture = tune() , penalty = tune() ) %>%
+#   set_engine('glmnet')
+# 
+# pen_log_wf <- workflow() %>%
+#   add_recipe(my_recipe) %>%
+#   add_model(pen_log_mod)
+# 
+# ## Grid of values to tune over
+# pen_tuning_grid <- grid_regular(penalty(),
+#                             mixture(),
+#                             levels = 5)
+# 
+# ## Splits data for CV
+# folds <- vfold_cv(train, v = 5, repeats = 1)
+# 
+# ## Run the CV
+# cv_results <- pen_log_wf %>%
+#   tune_grid(resamples = folds,
+#             grid = pen_tuning_grid,
+#             metrics = metric_set(roc_auc))
+# 
+# best_tune <- cv_results %>%
+#   select_best('roc_auc')
+# 
+# # Finalize wf and fit it
+# final_wf <-
+#   pen_log_wf %>%
+#   finalize_workflow(best_tune) %>%
+#   fit(data = train)
+# 
+# # Predict
+# pen_log_preds <- final_wf %>%
+#   predict(new_data = test, type = 'prob')
+# 
+# pen_log_submission <- pen_log_preds %>%
+#   mutate(Id = row_number()) %>%
+#   rename("Action" = ".pred_1") %>%
+#   select(3,2)
+# 
+# vroom_write(x=pen_log_submission, file="./pen_log_reg_smote.csv", delim=",")
 
 
 # # Random Forests ----------------------------------------------------------
-rand_forest_mod <- rand_forest(mtry = tune(),
-                               min_n=tune(),
-                               trees=500) %>% # or 1000
-  set_engine("ranger") %>%
-  set_mode("classification")
-
-rand_forest_workflow <- workflow() %>%
-  add_recipe(my_recipe) %>%
-  add_model(rand_forest_mod)
-
-rand_forest_tuning_grid <- grid_regular(mtry(range = c(1, (ncol(train)-1))),
-                                        min_n(),
-                                        levels = 5) ## L^2 total tuning possibilities
-
-## Split data for CV
-forest_folds <- vfold_cv(train, v = 5, repeats = 1)
-
-## Run the CV
-CV_results <- rand_forest_workflow %>%
-  tune_grid(resamples = forest_folds,
-            grid = rand_forest_tuning_grid,
-            metrics = metric_set(roc_auc)) # f_meas, sens, recall, spec, precision, accuracy
-
-## Find Best Tuning Parameters
-forest_bestTune <- CV_results %>%
-  select_best("roc_auc")
-
-## Finalize the Workflow & fit it
-final_forest_wf <- rand_forest_workflow %>%
-  finalize_workflow(forest_bestTune) %>%
-  fit(data = train)
-
-predict_and_format(final_forest_wf, test, "./random_forest_predictions_smote.csv")
+# rand_forest_mod <- rand_forest(mtry = tune(),
+#                                min_n=tune(),
+#                                trees=500) %>% # or 1000
+#   set_engine("ranger") %>%
+#   set_mode("classification")
+# 
+# rand_forest_workflow <- workflow() %>%
+#   add_recipe(my_recipe) %>%
+#   add_model(rand_forest_mod)
+# 
+# rand_forest_tuning_grid <- grid_regular(mtry(range = c(1, (ncol(train)-1))),
+#                                         min_n(),
+#                                         levels = 5) ## L^2 total tuning possibilities
+# 
+# ## Split data for CV
+# forest_folds <- vfold_cv(train, v = 5, repeats = 1)
+# 
+# ## Run the CV
+# CV_results <- rand_forest_workflow %>%
+#   tune_grid(resamples = forest_folds,
+#             grid = rand_forest_tuning_grid,
+#             metrics = metric_set(roc_auc)) # f_meas, sens, recall, spec, precision, accuracy
+# 
+# ## Find Best Tuning Parameters
+# forest_bestTune <- CV_results %>%
+#   select_best("roc_auc")
+# 
+# ## Finalize the Workflow & fit it
+# final_forest_wf <- rand_forest_workflow %>%
+#   finalize_workflow(forest_bestTune) %>%
+#   fit(data = train)
+# 
+# predict_and_format(final_forest_wf, test, "./random_forest_predictions_smote.csv")
 
 # Naive Bayes -------------------------------------------------------------
 # library(discrim)
@@ -391,10 +391,80 @@ predict_and_format(final_forest_wf, test, "./random_forest_predictions_smote.csv
 
 # model stacking ----------------------------------------------------------
 
+# Penalized model
+penalized_reg_recipe <- recipe(ACTION ~ ., train) %>%
+  step_mutate_at(all_numeric_predictors(), fn = factor) %>% # turn all numeric features into factors
+  step_lencode_mixed(all_nominal_predictors(), outcome = vars(ACTION)) # target encoding (must be 2-factor)
+
+penalized_logistic_workflow <- workflow() %>%
+  add_recipe(penalized_reg_recipe) %>%
+  add_model(penalized_logistic_mod)
+
+## Grid of values to tune over
+pen_tuning_grid <- grid_regular(penalty(),
+                                mixture(),
+                                levels = 5) ## L^2 total tuning possibilities
+
+## Split data for CV
+pen_folds <- vfold_cv(train, v = 5, repeats = 3)
+
+## Run the CV
+CV_results <- penalized_logistic_workflow %>%
+  tune_grid(resamples = pen_folds,
+            grid = pen_tuning_grid,
+            metrics = metric_set(roc_auc)) # f_meas, sens, recall, spec, precision, accuracy
+
+## Find Best Tuning Parameters
+pen_bestTune <- CV_results %>%
+  select_best("roc_auc")
+
+## Finalize the Workflow & fit it
+final_pen_wf <- penalized_logistic_workflow %>%
+  finalize_workflow(pen_bestTune) %>%
+  fit(data = train)
+
+# Rand Forest
+rand_forest_mod <- rand_forest(mtry = tune(),
+                               min_n=tune(),
+                               trees = 1000) %>% # or 1000
+  set_engine("ranger") %>%
+  set_mode("classification")
+
+target_encoding_recipe <- recipe(ACTION ~ ., train) %>%
+  step_mutate_at(all_numeric_predictors(), fn = factor) %>% # turn all numeric features into factors
+  step_other(all_nominal_predictors(), threshold = .001) %>%  # combines categorical values that occur <1% into an "other" value
+  step_lencode_mixed(all_nominal_predictors(), outcome = vars(ACTION)) # target encoding (must be 2-factor)
+
+rand_forest_workflow <- workflow() %>%
+  add_recipe(target_encoding_recipe) %>%
+  add_model(rand_forest_mod)
+
+rand_forest_tuning_grid <- grid_regular(mtry(range = c(1, (ncol(train)-1))),
+                                        min_n(),
+                                        levels = 5) ## L^2 total tuning possibilities
+
+## Split data for CV
+forest_folds <- vfold_cv(train, v = 5, repeats = 2)
+
+## Run the CV
+CV_results <- rand_forest_workflow %>%
+  tune_grid(resamples = forest_folds,
+            grid = rand_forest_tuning_grid,
+            metrics = metric_set(roc_auc)) # f_meas, sens, recall, spec, precision, accuracy
+
+## Find Best Tuning Parameters
+forest_bestTune <- CV_results %>%
+  select_best("roc_auc")
+
+## Finalize the Workflow & fit it
+final_forest_wf <- rand_forest_workflow %>%
+  finalize_workflow(forest_bestTune) %>%
+  fit(data = train)
+
 folds <- vfold_cv(train, v = 5, repeats=2)
 untunedModel <- control_stack_grid()
 
-preg_models <- pen_log_wf %>%
+preg_models <- penalized_logistic_workflow %>%
   tune_grid(resamples=folds,
             grid=pen_tuning_grid,
             metrics=metric_set(roc_auc),
