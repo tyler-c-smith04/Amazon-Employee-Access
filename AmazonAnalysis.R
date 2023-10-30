@@ -13,6 +13,7 @@ library(naivebayes)
 library(kknn)
 library(doParallel)
 library(themis)
+library(stacks)
 
 # parallel::detectCores()
 # cl <- makePSOCKcluster(20)
