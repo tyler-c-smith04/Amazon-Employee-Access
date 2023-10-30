@@ -38,7 +38,7 @@ test <- vroom("./test.csv") %>%
 
 my_recipe <- recipe(ACTION ~ ., data = train) %>%
   step_mutate_at(all_numeric_predictors(), fn = factor) %>% # turn all numeric features into factors
-  step_lencode_mixed(all_nominal_predictors, outcome = vars(ACTION))
+  step_lencode_mixed(all_nominal_predictors(), outcome = vars(ACTION))
 
 predict_and_format <- function(workflow, new_data, filename){
   predictions <- workflow %>%
