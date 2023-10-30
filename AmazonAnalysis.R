@@ -99,7 +99,7 @@ pen_log_wf <- workflow() %>%
   add_model(pen_log_mod)
 
 ## Grid of values to tune over
-tuning_grid <- grid_regular(penalty(),
+pen_tuning_grid <- grid_regular(penalty(),
                             mixture(),
                             levels = 5)
 
