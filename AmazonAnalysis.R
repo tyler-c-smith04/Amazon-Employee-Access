@@ -109,7 +109,7 @@ folds <- vfold_cv(train, v = 5, repeats = 1)
 ## Run the CV
 cv_results <- pen_log_wf %>%
   tune_grid(resamples = folds,
-            grid = tuning_grid,
+            grid = pen_tuning_grid,
             metrics = metric_set(roc_auc))
 
 best_tune <- cv_results %>%
