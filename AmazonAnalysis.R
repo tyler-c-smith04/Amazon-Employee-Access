@@ -15,9 +15,9 @@ library(doParallel)
 library(themis)
 library(stacks)
 
-# parallel::detectCores()
-# cl <- makePSOCKcluster(20)
-# registerDoParallel(cl)
+parallel::detectCores()
+cl <- makePSOCKcluster(4)
+registerDoParallel(cl)
 
 train <- vroom("./train.csv") %>% 
   mutate(ACTION = as.factor(ACTION))
@@ -392,6 +392,10 @@ predict_and_format <- function(workflow, new_data, filename){
 # model stacking ----------------------------------------------------------
 
 # Penalized model
+penalized_logistic_mod <- logistic_reg(mixture = tune(),
+                                       penalty = tune()) %>% #Type of model
+  set_engine("glmnet")
+
 penalized_reg_recipe <- recipe(ACTION ~ ., train) %>%
   step_mutate_at(all_numeric_predictors(), fn = factor) %>% # turn all numeric features into factors
   step_lencode_mixed(all_nominal_predictors(), outcome = vars(ACTION)) # target encoding (must be 2-factor)
@@ -423,7 +427,6 @@ final_pen_wf <- penalized_logistic_workflow %>%
   finalize_workflow(pen_bestTune) %>%
   fit(data = train)
 
-# Rand Forest
 rand_forest_mod <- rand_forest(mtry = tune(),
                                min_n=tune(),
                                trees = 1000) %>% # or 1000
@@ -434,6 +437,12 @@ target_encoding_recipe <- recipe(ACTION ~ ., train) %>%
   step_mutate_at(all_numeric_predictors(), fn = factor) %>% # turn all numeric features into factors
   step_other(all_nominal_predictors(), threshold = .001) %>%  # combines categorical values that occur <1% into an "other" value
   step_lencode_mixed(all_nominal_predictors(), outcome = vars(ACTION)) # target encoding (must be 2-factor)
+
+balance_recipe <- recipe(ACTION ~ ., data = train) %>%
+  step_mutate_at(all_numeric_predictors(), fn = factor) %>%
+  step_other(all_nominal_predictors(), threshold = .001) %>%
+  step_lencode_mixed(all_nominal_predictors(), outcome = vars(ACTION)) %>% #Everything numeric for SMOTE
+  step_downsample(all_outcomes())
 
 rand_forest_workflow <- workflow() %>%
   add_recipe(target_encoding_recipe) %>%
@@ -500,7 +509,7 @@ submission <- predictions %>%
 vroom_write(x = submission, file = "stacked_predictions.csv", delim=",")
 
 
-# stopCluster(cl)
+stopCluster(cl)
 
 
 
